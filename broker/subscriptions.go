@@ -41,7 +41,7 @@ type subscriptions struct {
 
 // The length of the queue that subscription processing
 // workers are taking from.
-const postQueue = 100
+const postQueue = 200
 
 func newSubscriptions(workers int) *subscriptions {
 	s := &subscriptions{

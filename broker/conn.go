@@ -124,11 +124,7 @@ func (c *incomingConn) replace() {
 // Queue a message; no notification of sending is done.
 func (c *incomingConn) submit(m packets.ControlPacket) {
 	j := job{m: m}
-	select {
-	case c.jobs <- j:
-	default:
-		log.Printf("ERROR: failed to submit message - %s", c)
-	}
+	c.jobs <- j
 	return
 }
 
@@ -174,6 +170,8 @@ func (c *incomingConn) reader() {
 				log.Printf("ERROR: Connection refused for %v: %v", c.conn.RemoteAddr(), err)
 				goto exit
 			}
+
+			// TODO: authorize
 
 			// connack
 			connack := packets.NewControlPacket(packets.Connack)
@@ -277,8 +275,8 @@ exit:
 	c.del()
 	c.svr.subs.unsubAll(c)
 	c.svr.stats.clientDisconnect()
-	close(c.stop)
 	c.conn.Close()
+	close(c.stop)
 }
 
 func (c *incomingConn) writer() {
