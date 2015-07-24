@@ -236,6 +236,7 @@ func (c *incomingConn) reader() {
 			}
 
 			suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
+			suback.PacketID = m.PacketID
 			suback.GrantedQoss = m.Qoss
 			c.submit(suback)
 
