@@ -17,3 +17,4 @@ For docs, see: http://godoc.org/github.com/zwczou/mqtt
 At this time, the following limitations apply:
  * messages are only stored in RAM
  * clean session not support
+ * not support authentication

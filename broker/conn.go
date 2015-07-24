@@ -172,7 +172,7 @@ func (c *incomingConn) reader() {
 			rc := m.Validate()
 			if rc != packets.Accepted {
 				err = packets.ConnErrors[rc]
-				log.Printf("ERROR: Connection refused for %v: %v", c.conn.RemoteAddr(), ConnectionErrors[rc])
+				log.Printf("ERROR: Connection refused for %v: %v", c.conn.RemoteAddr(), err)
 				goto exit
 			}
 

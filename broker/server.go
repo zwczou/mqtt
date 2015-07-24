@@ -1,56 +1,20 @@
 package broker
 
 import (
-	"errors"
 	"log"
-	"math/rand"
 	"net"
 	"runtime"
 	"time"
-
-	proto "github.com/huin/mqtt"
 )
-
-var ConnectionErrors = [6]error{
-	nil, // Connection Accepted (not an error)
-	errors.New("Connection Refused: unacceptable protocol version"),
-	errors.New("Connection Refused: identifier rejected"),
-	errors.New("Connection Refused: server unavailable"),
-	errors.New("Connection Refused: bad user name or password"),
-	errors.New("Connection Refused: not authorized"),
-}
-
-// header is used to initialize a proto.Header when the zero value
-// is not correct. The zero value of proto.Header is
-// the equivalent of header(dupFalse, proto.QosAtMostOnce, retainFalse)
-// and is correct for most messages.
-func header(d dupFlag, q proto.QosLevel, r retainFlag) proto.Header {
-	return proto.Header{
-		DupFlag: bool(d), QosLevel: q, Retain: bool(r),
-	}
-}
-
-type retainFlag bool
-type dupFlag bool
-
-const (
-	retainFalse retainFlag = false
-	retainTrue             = true
-	dupFalse    dupFlag    = false
-	dupTrue                = true
-)
-
-const clientQueueLength = 100
 
 // A Server holds all the state associated with an MQTT server.
 type Server struct {
 	l             net.Listener
 	subs          *subscriptions
 	stats         *stats
-	Done          chan struct{}
 	StatsInterval time.Duration // Defaults to 10 seconds. Must be set using sync/atomic.StoreInt64().
 	Dump          bool          // When true, dump the messages in and out.
-	rand          *rand.Rand
+	Done          chan struct{}
 }
 
 // NewServer creates a new MQTT server, which accepts connections from
@@ -68,15 +32,14 @@ func NewServer(l net.Listener) *Server {
 
 	// start the stats reporting goroutine
 	go func() {
+		ticker := time.NewTicker(svr.StatsInterval)
 		for {
-			svr.stats.publish(svr.subs, svr.StatsInterval)
 			select {
+			case <-ticker.C:
+				svr.stats.publish(svr.subs, svr.StatsInterval)
 			case <-svr.Done:
 				return
-			default:
-				// keep going
 			}
-			time.Sleep(svr.StatsInterval)
 		}
 	}()
 
@@ -105,4 +68,11 @@ func (s *Server) Start() {
 		}
 		close(s.Done)
 	}()
+}
+
+func (s *Server) Stop() {
+	if s.l != nil {
+		s.l.Close()
+		s.l = nil
+	}
 }
