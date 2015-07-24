@@ -15,7 +15,7 @@ import (
 func main() {
 	// see godoc net/http/pprof
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
 	l, err := net.Listen("tcp", ":1883")

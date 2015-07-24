@@ -3,7 +3,7 @@ mqtt
 
 MQTT Servers(Broker) in Go
 
-For docs, see: http://godoc.org/github.com/zwczou/mqtt
+For docs, see: http://godoc.org/github.com/zwczou/mqtt/broker
 
 
 **Features**
