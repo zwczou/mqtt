@@ -75,25 +75,6 @@ func (s *stats) publish(sub *subscriptions, interval time.Duration) {
 	sub.submit(nil, statsMessage("$SYS/broker/messages/per-sec", msgpersec))
 }
 
-// An intPayload implements proto.Payload, and is an int64 that
-// formats itself and then prints itself into the payload.
-type intPayload string
-
-func newIntPayload(i int64) intPayload {
-	return intPayload(fmt.Sprint(i))
-}
-func (ip intPayload) ReadPayload(r io.Reader) error {
-	// not implemented
-	return nil
-}
-func (ip intPayload) WritePayload(w io.Writer) error {
-	_, err := w.Write([]byte(string(ip)))
-	return err
-}
-func (ip intPayload) Size() int {
-	return len(ip)
-}
-
 // A retain holds information necessary to correctly manage retained
 // messages.
 //
@@ -687,27 +668,6 @@ const (
 	dupFalse    dupFlag    = false
 	dupTrue                = true
 )
-
-func isWildcard(topic string) bool {
-	if strings.Contains(topic, "#") || strings.Contains(topic, "+") {
-		return true
-	}
-	return false
-}
-
-func (w wild) valid() bool {
-	for i, part := range w.wild {
-		// catch things like finance#
-		if isWildcard(part) && len(part) != 1 {
-			return false
-		}
-		// # can only occur as the last part
-		if part == "#" && i != len(w.wild)-1 {
-			return false
-		}
-	}
-	return true
-}
 
 const clientQueueLength = 100
 
