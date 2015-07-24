@@ -217,7 +217,6 @@ func (c *incomingConn) reader() {
 				c.svr.subs.submit(c, m)
 			}
 		case *packets.PubackPacket:
-			// TODO: free message
 		case *packets.PubrecPacket:
 			prel := packets.NewControlPacket(packets.Pubrel).(*packets.PubrelPacket)
 			prel.PacketID = m.PacketID
@@ -227,7 +226,6 @@ func (c *incomingConn) reader() {
 			pc.PacketID = m.PacketID
 			c.submit(pc)
 		case *packets.PubcompPacket:
-			// TODO: free message
 		case *packets.PingreqPacket:
 			pr := packets.NewControlPacket(packets.Pingresp)
 			c.submit(pr)
