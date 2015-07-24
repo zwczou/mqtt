@@ -89,7 +89,13 @@ func (s *Server) Start() {
 		for {
 			conn, err := s.l.Accept()
 			if err != nil {
-				log.Print("Accept: ", err)
+				if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+					log.Printf("NOTICE: temporary Accept() failure - %s", err)
+					runtime.Gosched()
+					continue
+				}
+
+				log.Print("INFO: failed to accept -", err)
 				break
 			}
 

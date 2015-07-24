@@ -2,8 +2,10 @@ package broker
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,7 +128,7 @@ func (c *incomingConn) submit(m packets.ControlPacket) {
 	select {
 	case c.jobs <- j:
 	default:
-		log.Print(c, ": failed to submit message")
+		log.Printf("ERROR: failed to submit message - %s", c)
 	}
 	return
 }
@@ -162,7 +164,7 @@ func (c *incomingConn) reader() {
 		c.svr.stats.messageRecv()
 
 		if c.svr.Dump {
-			log.Printf("dump  in: %T", m)
+			log.Printf("INFO: dump  in: %T", m)
 		}
 
 		switch m := m.(type) {
@@ -170,7 +172,7 @@ func (c *incomingConn) reader() {
 			rc := m.Validate()
 			if rc != packets.Accepted {
 				err = packets.ConnErrors[rc]
-				log.Printf("Connection refused for %v: %v", c.conn.RemoteAddr(), ConnectionErrors[rc])
+				log.Printf("ERROR: Connection refused for %v: %v", c.conn.RemoteAddr(), ConnectionErrors[rc])
 				goto exit
 			}
 
@@ -196,7 +198,7 @@ func (c *incomingConn) reader() {
 			if m.CleanSession {
 				clean = 1
 			}
-			log.Printf("New client connected from %v as %v (c%v, k%v).", c.conn.RemoteAddr(), c.clientid, clean, m.KeepaliveTimer)
+			log.Printf("INFO: New client connected from %v as %v (c%v, k%v).", c.conn.RemoteAddr(), c.clientid, clean, m.KeepaliveTimer)
 
 		case *packets.PublishPacket:
 			switch m.Qos {
@@ -260,8 +262,9 @@ func (c *incomingConn) reader() {
 
 exit:
 	if err != nil {
-		log.Printf("reader error: %s", err)
-		// TODO: last will
+		if err != io.EOF && !strings.Contains(err.Error(), "use of closed") {
+			log.Printf("ERROR: failed to reader - %s", err)
+		}
 
 		if c.connect.WillFlag {
 			pub := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)

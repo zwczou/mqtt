@@ -1,7 +1,6 @@
 package broker
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -57,8 +56,12 @@ func (s *subscriptions) sendRetain(topic string, c *incomingConn) {
 	s.mu.Lock()
 	var tlist []string
 	if isWildcard(topic) {
-
-		// TODO: select matching topics from the retain map
+		parts := strings.Split(topic, "/")
+		for k, _ := range s.retain {
+			if newWild(k, c).matches(parts) {
+				tlist = append(tlist, k)
+			}
+		}
 	} else {
 		tlist = []string{topic}
 	}
@@ -151,8 +154,7 @@ func (s *subscriptions) unsub(topic string, c *incomingConn) {
 
 // The subscription processing worker.
 func (s *subscriptions) run(id int) {
-	tag := fmt.Sprintf("worker %d ", id)
-	log.Print(tag, "started")
+	log.Printf("INFO: worker %d started", id)
 	for post := range s.posts {
 		// Remember the original retain setting, but send out immediate
 		// copies without retain: "When a server sends a PUBLISH to a client
