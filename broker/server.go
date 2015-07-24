@@ -29,7 +29,7 @@ func NewServer(l net.Listener) *Server {
 		Done:            make(chan struct{}),
 		StatsInterval:   time.Second * 10,
 		SendQueueLength: 20,
-		subs:            newSubscriptions(runtime.GOMAXPROCS(0)),
+		subs:            newSubscriptions(runtime.NumCPU()),
 	}
 
 	// start the stats reporting goroutine

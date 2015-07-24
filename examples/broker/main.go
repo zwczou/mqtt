@@ -7,12 +7,14 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/zwczou/mqtt/broker"
 )
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	// see godoc net/http/pprof
 	go func() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
