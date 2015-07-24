@@ -25,6 +25,8 @@ type post struct {
 }
 
 type subscriptions struct {
+	sync.WaitGroup
+
 	workers int
 	posts   chan (post)
 
@@ -33,6 +35,8 @@ type subscriptions struct {
 	wildcards []wild
 	retain    map[string]retain
 	stats     *stats
+
+	stop chan struct{}
 }
 
 // The length of the queue that subscription processing
@@ -44,8 +48,10 @@ func newSubscriptions(workers int) *subscriptions {
 		subs:    make(map[string][]*incomingConn),
 		retain:  make(map[string]retain),
 		posts:   make(chan post, postQueue),
+		stop:    make(chan struct{}),
 		workers: workers,
 	}
+	s.Add(s.workers)
 	for i := 0; i < s.workers; i++ {
 		go s.run(i)
 	}
@@ -155,45 +161,54 @@ func (s *subscriptions) unsub(topic string, c *incomingConn) {
 // The subscription processing worker.
 func (s *subscriptions) run(id int) {
 	log.Printf("INFO: worker %d started", id)
-	for post := range s.posts {
-		// Remember the original retain setting, but send out immediate
-		// copies without retain: "When a server sends a PUBLISH to a client
-		// as a result of a subscription that already existed when the
-		// original PUBLISH arrived, the Retain flag should not be set,
-		// regardless of the Retain flag of the original PUBLISH.
-		isRetain := post.m.Retain
-		post.m.Retain = false
+	for {
+		select {
+		case post := <-s.posts:
+			// Remember the original retain setting, but send out immediate
+			// copies without retain: "When a server sends a PUBLISH to a client
+			// as a result of a subscription that already existed when the
+			// original PUBLISH arrived, the Retain flag should not be set,
+			// regardless of the Retain flag of the original PUBLISH.
+			isRetain := post.m.Retain
+			post.m.Retain = false
 
-		// Handle "retain with payload size zero = delete retain".
-		// Once the delete is done, return instead of continuing.
-		if isRetain && len(post.m.Payload) == 0 {
-			s.mu.Lock()
-			delete(s.retain, post.m.TopicName)
-			s.mu.Unlock()
-			return
-		}
-
-		// Find all the connections that should be notified of this message.
-		conns := s.subscribers(post.m.TopicName)
-
-		// Queue the outgoing messages
-		for _, c := range conns {
-			if c != nil {
-				c.submit(post.m)
+			// Handle "retain with payload size zero = delete retain".
+			// Once the delete is done, return instead of continuing.
+			if isRetain && len(post.m.Payload) == 0 {
+				s.mu.Lock()
+				delete(s.retain, post.m.TopicName)
+				s.mu.Unlock()
+				break
 			}
-		}
 
-		if isRetain {
-			s.mu.Lock()
-			// Save a copy of it, and set that copy's Retain to true, so that
-			// when we send it out later we notify new subscribers that this
-			// is an old message.
-			msg := post.m
-			msg.Retain = true
-			s.retain[post.m.TopicName] = retain{m: msg}
-			s.mu.Unlock()
+			// Find all the connections that should be notified of this message.
+			conns := s.subscribers(post.m.TopicName)
+
+			// Queue the outgoing messages
+			for _, c := range conns {
+				if c != nil {
+					c.submit(post.m)
+				}
+			}
+
+			if isRetain {
+				s.mu.Lock()
+				// Save a copy of it, and set that copy's Retain to true, so that
+				// when we send it out later we notify new subscribers that this
+				// is an old message.
+				msg := post.m
+				msg.Retain = true
+				s.retain[post.m.TopicName] = retain{m: msg}
+				s.mu.Unlock()
+			}
+		case <-s.stop:
+			goto exit
 		}
 	}
+
+exit:
+	log.Printf("INFO worker %d stopped", id)
+	s.Done()
 }
 
 func (s *subscriptions) submit(c *incomingConn, m *packets.PublishPacket) {
