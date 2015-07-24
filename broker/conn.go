@@ -27,19 +27,18 @@ type incomingConn struct {
 var clients = make(map[string]*incomingConn)
 var clientsMu sync.Mutex
 
-const sendingQueueLength = 20
-
 // newIncomingConn creates a new incomingConn associated with this
 // server. The connection becomes the property of the incomingConn
 // and should not be touched again by the caller until the Done
 // channel becomes readable.
 func (s *Server) newIncomingConn(conn net.Conn) *incomingConn {
 	return &incomingConn{
-		svr:  s,
-		conn: conn,
-		jobs: make(chan job, sendingQueueLength),
-		Done: make(chan struct{}),
-		stop: make(chan struct{}),
+		svr:            s,
+		conn:           conn,
+		KeepaliveTimer: 2,
+		jobs:           make(chan job, s.SendQueueLength),
+		Done:           make(chan struct{}),
+		stop:           make(chan struct{}),
 	}
 }
 

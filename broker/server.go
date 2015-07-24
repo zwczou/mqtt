@@ -9,12 +9,13 @@ import (
 
 // A Server holds all the state associated with an MQTT server.
 type Server struct {
-	l             net.Listener
-	subs          *subscriptions
-	stats         *stats
-	StatsInterval time.Duration // Defaults to 10 seconds. Must be set using sync/atomic.StoreInt64().
-	Dump          bool          // When true, dump the messages in and out.
-	Done          chan struct{}
+	l               net.Listener
+	subs            *subscriptions
+	stats           *stats
+	StatsInterval   time.Duration // Defaults to 10 seconds. Must be set using sync/atomic.StoreInt64().
+	SendQueueLength int
+	Dump            bool // When true, dump the messages in and out.
+	Done            chan struct{}
 }
 
 // NewServer creates a new MQTT server, which accepts connections from
@@ -23,11 +24,12 @@ type Server struct {
 // readable.
 func NewServer(l net.Listener) *Server {
 	svr := &Server{
-		l:             l,
-		stats:         &stats{},
-		Done:          make(chan struct{}),
-		StatsInterval: time.Second * 10,
-		subs:          newSubscriptions(runtime.GOMAXPROCS(0)),
+		l:               l,
+		stats:           &stats{},
+		Done:            make(chan struct{}),
+		StatsInterval:   time.Second * 10,
+		SendQueueLength: 20,
+		subs:            newSubscriptions(runtime.GOMAXPROCS(0)),
 	}
 
 	// start the stats reporting goroutine
